@@ -1,4 +1,4 @@
-# Copyright © 2019 Canonical Ltd.
+# Copyright © 2019-2021 Canonical Ltd.
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License version 3 as
@@ -13,6 +13,8 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 add_library(client_common STATIC
+  alias_dict.cpp
+  client_formatter.cpp
   client_common.cpp)
 
 target_link_libraries(client_common
