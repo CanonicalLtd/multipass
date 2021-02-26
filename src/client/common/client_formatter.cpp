@@ -24,6 +24,10 @@
 
 #include <sstream>
 
+#include <QJsonArray>
+#include <QJsonDocument>
+#include <QJsonObject>
+
 namespace mp = multipass;
 namespace mpu = multipass::utils;
 
@@ -45,12 +49,49 @@ std::string mp::ClientFormatter::format(const mp::AliasDict& aliases) const
 
 std::string mp::ClientFormatter::format_csv(const mp::AliasDict& aliases) const
 {
-    return std::string{};
+    fmt::memory_buffer buf;
+    fmt::format_to(buf, "Alias,Instance,Command,Args\n");
+
+    for (auto dict_it = aliases.cbegin(); dict_it != aliases.cend(); ++dict_it)
+    {
+        const auto& name = dict_it->first;
+        const auto& def = dict_it->second;
+
+        fmt::format_to(buf, "{},{},{},", name, def.instance, def.command);
+
+        // TODO: improve formatting the args, in order to allow double quotes and commas inside the arguments.
+        fmt::format_to(buf, "\"{}\"\n", fmt::join(def.arguments, ","));
+    }
+
+    return fmt::to_string(buf);
 }
 
 std::string mp::ClientFormatter::format_json(const mp::AliasDict& aliases) const
 {
-    return std::string{};
+    QJsonObject aliases_json;
+    QJsonArray aliases_array;
+
+    for (auto dict_it = aliases.cbegin(); dict_it != aliases.cend(); ++dict_it)
+    {
+        const auto& name = dict_it->first;
+        const auto& def = dict_it->second;
+
+        QJsonObject alias_obj;
+        alias_obj.insert("name", QString::fromStdString(name));
+        alias_obj.insert("instance", QString::fromStdString(def.instance));
+        alias_obj.insert("command", QString::fromStdString(def.command));
+
+        QJsonArray args;
+        for (const auto& arg : def.arguments)
+            args.append(QString::fromStdString(arg));
+        alias_obj.insert("arguments", args);
+
+        aliases_array.append(alias_obj);
+    }
+
+    aliases_json.insert("aliases", aliases_array);
+
+    return QString(QJsonDocument(aliases_json).toJson()).toStdString();
 }
 
 std::string mp::ClientFormatter::format_table(const mp::AliasDict& aliases) const
