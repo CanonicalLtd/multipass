@@ -17,6 +17,7 @@
 
 #include "client_formatter.h"
 
+#include <multipass/cli/format_utils.h>
 #include <multipass/utils.h>
 
 #include <fmt/format.h>
@@ -47,6 +48,17 @@ std::string mp::ClientFormatter::format(const mp::AliasDict& aliases) const
     return formatted_output;
 }
 
+std::vector<std::string> mp::ClientFormatter::escape_args(const std::vector<std::string>& args) const
+{
+    std::vector<std::string> escaped_args;
+
+    auto replace = [](const std::string& s) { return QString::fromStdString(s).replace(" ", "\\ ").toStdString(); };
+
+    std::transform(args.cbegin(), args.cend(), std::back_inserter<std::vector<std::string>>(escaped_args), replace);
+
+    return escaped_args;
+}
+
 std::string mp::ClientFormatter::format_csv(const mp::AliasDict& aliases) const
 {
     fmt::memory_buffer buf;
@@ -59,8 +71,7 @@ std::string mp::ClientFormatter::format_csv(const mp::AliasDict& aliases) const
 
         fmt::format_to(buf, "{},{},{},", name, def.instance, def.command);
 
-        // TODO: improve formatting the args, in order to allow double quotes and commas inside the arguments.
-        fmt::format_to(buf, "\"{}\"\n", fmt::join(def.arguments, ","));
+        fmt::format_to(buf, "\"{}\"\n", fmt::join(escape_args(def.arguments), " "));
     }
 
     return fmt::to_string(buf);
@@ -101,16 +112,25 @@ std::string mp::ClientFormatter::format_table(const mp::AliasDict& aliases) cons
     if (aliases.empty())
         return "No aliases defined.\n";
 
+    const auto alias_width = mp::format::column_width(
+        aliases.cbegin(), aliases.cend(), [](const auto& alias) -> int { return alias.first.length(); }, 7);
+    const auto instance_width = mp::format::column_width(
+        aliases.cbegin(), aliases.cend(), [](const auto& alias) -> int { return alias.second.instance.length(); }, 10);
+    const auto command_width = mp::format::column_width(
+        aliases.cbegin(), aliases.cend(), [](const auto& alias) -> int { return alias.second.command.length(); }, 9);
+
+    const auto row_format = "{:<{}}{:<{}}{:<{}}{:<}\n";
+
+    fmt::format_to(buf, row_format, "Alias", alias_width, "Instance", instance_width, "Command", command_width, "Args");
+
     // Don't use for (const auto& elem : aliases) to preserve constness.
     for (auto dict_it = aliases.cbegin(); dict_it != aliases.cend(); ++dict_it)
     {
         const auto& name = dict_it->first;
         const auto& def = dict_it->second;
 
-        std::ostringstream all_args;
-        std::copy(def.arguments.cbegin(), def.arguments.cend(), std::ostream_iterator<std::string>(all_args, " "));
-
-        fmt::format_to(buf, "{:<28}{:<18}{:<17}{:<}\n", name, def.instance, def.command, all_args.str());
+        fmt::format_to(buf, row_format, name, alias_width, def.instance, instance_width, def.command, command_width,
+                       fmt::join(escape_args(def.arguments), " "));
     }
 
     return fmt::to_string(buf);

@@ -35,6 +35,7 @@ public:
     std::string format(const mp::AliasDict& aliases) const;
 
 private:
+    std::vector<std::string> escape_args(const std::vector<std::string>& args) const;
     std::string format_csv(const mp::AliasDict& aliases) const;
     std::string format_json(const mp::AliasDict& aliases) const;
     std::string format_table(const mp::AliasDict& aliases) const;
