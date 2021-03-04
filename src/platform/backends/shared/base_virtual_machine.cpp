@@ -17,6 +17,11 @@
 
 #include "base_virtual_machine.h"
 
+#include <multipass/logging/log.h>
+
+namespace mp = multipass;
+namespace mpl = multipass::logging;
+
 namespace multipass
 {
 
@@ -26,21 +31,30 @@ std::vector<std::string> BaseVirtualMachine::get_all_ipv4(const SSHKeyProvider& 
 
     if (state == State::running)
     {
-        SSHSession session{ssh_hostname(), ssh_port(), ssh_username(), key_provider};
+        QString ip_a_output;
 
-        auto ip_a_output = QString::fromStdString(
-            mpu::run_in_ssh_session(session, "ip -brief -family inet address show scope global"));
-
-        QRegularExpression ipv4_re{QStringLiteral("([\\d\\.]+)\\/\\d+\\s*$"), QRegularExpression::MultilineOption};
-
-        QRegularExpressionMatchIterator ip_it = ipv4_re.globalMatch(ip_a_output);
-
-        while (ip_it.hasNext())
+        try
         {
-            auto ip_match = ip_it.next();
-            auto ip = ip_match.captured(1).toStdString();
+            SSHSession session{ssh_hostname(), ssh_port(), ssh_username(), key_provider};
 
-            all_ipv4.push_back(ip);
+            ip_a_output = QString::fromStdString(
+                mpu::run_in_ssh_session(session, "ip -brief -family inet address show scope global"));
+
+            QRegularExpression ipv4_re{QStringLiteral("([\\d\\.]+)\\/\\d+\\s*$"), QRegularExpression::MultilineOption};
+
+            QRegularExpressionMatchIterator ip_it = ipv4_re.globalMatch(ip_a_output);
+
+            while (ip_it.hasNext())
+            {
+                auto ip_match = ip_it.next();
+                auto ip = ip_match.captured(1).toStdString();
+
+                all_ipv4.push_back(ip);
+            }
+        }
+        catch (const std::exception& e)
+        {
+            mpl::log(mpl::Level::debug, "base_vm", fmt::format("Error getting extra IP addresses: {}", e.what()));
         }
     }
 
