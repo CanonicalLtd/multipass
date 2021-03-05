@@ -29,7 +29,7 @@ std::vector<std::string> BaseVirtualMachine::get_all_ipv4(const SSHKeyProvider& 
 {
     std::vector<std::string> all_ipv4;
 
-    if (state == State::running)
+    if (current_state() == State::running)
     {
         QString ip_a_output;
 

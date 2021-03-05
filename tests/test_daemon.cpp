@@ -27,6 +27,7 @@
 #include <multipass/constants.h>
 #include <multipass/logging/log.h>
 #include <multipass/name_generator.h>
+#include <multipass/ssh/ssh_session.h>
 #include <multipass/version.h>
 #include <multipass/virtual_machine_factory.h>
 #include <multipass/vm_image_host.h>
@@ -38,6 +39,7 @@
 #include "mock_environment_helpers.h"
 #include "mock_logger.h"
 #include "mock_process_factory.h"
+#include "mock_ssh.h"
 #include "mock_standard_paths.h"
 #include "mock_virtual_machine.h"
 #include "mock_virtual_machine_factory.h"
@@ -1240,6 +1242,7 @@ TEST_P(ListIP, lists_with_ip)
 
     EXPECT_CALL(*instance_ptr, current_state()).WillRepeatedly(Return(state));
     EXPECT_CALL(*instance_ptr, ensure_vm_is_running()).WillRepeatedly(Throw(std::runtime_error("Not running")));
+    EXPECT_CALL(*instance_ptr, get_all_ipv4(_)).WillRepeatedly(Return(std::vector<std::string>{"192.168.2.123"}));
 
     send_command({"launch"});
 
@@ -1260,6 +1263,34 @@ INSTANTIATE_TEST_SUITE_P(
                            std::vector<std::string>{"Stopped", "--"}),
            std::make_tuple(mp::VirtualMachine::State::off, std::vector<std::string>{"list", "--no-ipv4"},
                            std::vector<std::string>{"Stopped", "--"})));
+
+TEST_F(Daemon, lists_when_ssh_throws_in_get_all_ipv4)
+{
+    auto mock_factory = use_a_mock_vm_factory();
+    config_builder.vault = std::make_unique<NiceMock<mpt::MockVMImageVault>>();
+
+    mp::Daemon daemon{config_builder.build()};
+
+    auto instance_ptr = std::make_unique<NiceMock<mpt::MockNonBaseVirtualMachine>>("mock");
+    EXPECT_CALL(*mock_factory, create_virtual_machine).WillRepeatedly([&instance_ptr](const auto&, auto&) {
+        return std::move(instance_ptr);
+    });
+
+    REPLACE(ssh_new, []() { return nullptr; }); // This makes SSH throw when opening a new session.
+    EXPECT_THROW(mp::SSHSession("theanswertoeverything", 42), std::runtime_error); // Test that it indeed does.
+
+    EXPECT_CALL(*instance_ptr, current_state()).WillRepeatedly(Return(multipass::VirtualMachine::State::running));
+    EXPECT_CALL(*instance_ptr, management_ipv4()).WillRepeatedly(Return("1.2.3.4"));
+    EXPECT_CALL(*instance_ptr, ensure_vm_is_running()).WillRepeatedly(Throw(std::runtime_error("Don't enter here!")));
+
+    send_command({"launch"});
+
+    std::stringstream stream;
+    send_command({"list"}, stream);
+
+    EXPECT_THAT(stream.str(), HasSubstr("1.2.3.4"));                // Check the management IP was returned.
+    EXPECT_EQ(QString::fromStdString(stream.str()).count('\n'), 2); // Check that there are no more IPs in the listing.
+}
 
 TEST_F(Daemon, prevents_repetition_of_loaded_mac_addresses)
 {
