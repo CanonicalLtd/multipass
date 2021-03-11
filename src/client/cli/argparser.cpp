@@ -15,8 +15,8 @@
  *
  */
 
+#include <multipass/cli/alias_dict.h>
 #include <multipass/cli/argparser.h>
-
 #include <multipass/format.h>
 
 #include <QFileInfo>
@@ -144,8 +144,20 @@ mp::ParseCode mp::ArgParser::parse()
         return ParseCode::HelpRequested;
     }
 
+    // The given argument is not a command name. Before failing, see if it is an alias.
+    AliasDict aliases; // Load the alias definitions.
+
+    execute_alias = aliases.get_alias(requested_command.toStdString());
+
+    if (execute_alias)
+    {
+        chosen_command = findCommand("exec");
+
+        return ParseCode::Ok;
+    }
+
     // Fall through
-    cout << "Error: Unknown Command '" << qUtf8Printable(requested_command) << "' (try \"multipass help\")\n";
+    cout << "Error: Unknown command or alias '" << qUtf8Printable(requested_command) << "' (try \"multipass help\")\n";
     return ParseCode::CommandLineError;
 }
 

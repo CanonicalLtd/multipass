@@ -17,6 +17,9 @@
 #ifndef ARGPARSER_H
 #define ARGPARSER_H
 
+#include <multipass/cli/alias_definition.h>
+#include <multipass/optional.h>
+
 #include <QtCore/QCommandLineOption>
 #include <QtCore/QCommandLineParser>
 
@@ -67,6 +70,11 @@ public:
 
     bool containsArgument(const QString& argument) const;
 
+    multipass::optional<AliasDefinition> executeAlias()
+    {
+        return execute_alias;
+    };
+
 private:
     QString generalHelpText();
     QString helpText(cmd::Command* command);
@@ -74,6 +82,7 @@ private:
     const QStringList& arguments;
     const std::vector<cmd::Command::UPtr>& commands;
     cmd::Command* chosen_command;
+    multipass::optional<AliasDefinition> execute_alias;
 
     QCommandLineParser parser;
 

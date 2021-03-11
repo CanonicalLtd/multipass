@@ -34,8 +34,21 @@ mp::ReturnCode cmd::Exec::run(mp::ArgParser* parser)
     }
 
     std::vector<std::string> args;
-    for (int i = 1; i < parser->positionalArguments().size(); ++i)
-        args.push_back(parser->positionalArguments().at(i).toStdString());
+
+    auto execute_alias = parser->executeAlias();
+
+    if (execute_alias)
+    {
+        args.push_back(execute_alias->command);
+
+        for (const auto& arg : execute_alias->arguments)
+            args.push_back(arg);
+    }
+    else
+    {
+        for (int i = 1; i < parser->positionalArguments().size(); ++i)
+            args.push_back(parser->positionalArguments().at(i).toStdString());
+    }
 
     auto on_success = [this, &args](mp::SSHInfoReply& reply) { return exec_success(reply, args, term); };
 
@@ -103,7 +116,10 @@ mp::ParseCode cmd::Exec::parse_args(mp::ArgParser* parser)
         return status;
     }
 
-    if (parser->positionalArguments().count() < 2)
+    auto execute_alias = parser->executeAlias();
+    auto arg_count = parser->positionalArguments().count();
+
+    if ((execute_alias && arg_count > 0) || (!execute_alias && arg_count < 2))
     {
         cerr << "Wrong number of arguments\n";
         status = ParseCode::CommandLineError;
@@ -111,7 +127,7 @@ mp::ParseCode cmd::Exec::parse_args(mp::ArgParser* parser)
     else
     {
         auto entry = request.add_instance_name();
-        entry->append(parser->positionalArguments().first().toStdString());
+        entry->append(execute_alias ? execute_alias->instance : parser->positionalArguments().first().toStdString());
     }
 
     return status;
