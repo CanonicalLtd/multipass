@@ -45,7 +45,7 @@ jobs:
 
     env:
       SNAPCRAFT_BUILD_INFO: 1
-      VCPKG_INSTALL_CACHE: ${HOME}/.cache/vcpkg_install
+      VCPKG_INSTALL_CACHE: ${{ github.workspace }}/../vcpkg_install
 
     timeout-minutes: 60
     steps:
